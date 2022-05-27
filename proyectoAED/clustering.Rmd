@@ -1,0 +1,191 @@
+---
+title: "regresionProyecto"
+author: "David Alsina, Estefanía Laverde, María Fernanda Palacio"
+date: "5/13/2022"
+output: html_document
+---
+
+```{r, include = FALSE}
+#Libraries
+
+library("factoextra")
+library("corrplot")
+library("psych")
+library("MASS")
+```
+
+```{r}
+#Read organized data
+data = read.csv('/home/dave/Documents/univ/5toSemestre/analisis_datos/proyecto/proyectoAED/proyectoAED/data_bonita.csv')
+```
+
+```{r}
+#Useful variables 
+vars_ok = c('Departamento', 'Municipio', 'Cultivo',
+                    'Topografia', 'Drenaje', 'Riego',
+                    'pH.agua.suelo.2.5.1.0', 'Materia.orgánica..MO...',
+                    'Fósforo..P..Bray.II.mg.kg', 'Azufre..S..Fosfato.monocalcico.mg.kg',
+                    'Acidez..Al.H..KCL.cmol....kg', 'Aluminio..Al..intercambiable.cmol....kg',
+                    'Calcio..Ca..intercambiable.cmol....kg', 'Magnesio..Mg..intercambiable.cmol....kg',
+                    'Potasio..K..intercambiable.cmol....kg', 'Sodio..Na..intercambiable.cmol....kg',
+                    'capacidad.de.intercambio.cationico..CICE..suma.de.bases.cmol....kg',
+                    'Conductividad.el.ctrica..CE..relacion.2.5.1.0.dS.m',
+                    'Hierro..Fe..disponible.olsen.mg.kg',
+                    'Cobre..Cu..disponible.mg.kg', 'Manganeso..Mn..disponible.Olsen.mg.kg',
+                    'Zinc..Zn..disponible.Olsen.mg.kg', 'Boro..B..disponible.mg.kg')
+
+numeric_vars_ok = c("pH.agua.suelo.2.5.1.0", "Materia.organica..MO...",
+                    "Fosforo..P..Bray.II.mg.kg", "Azufre..S..Fosfato.monocalcico.mg.kg",
+                    "Acidez..Al.H..KCL.cmol....kg", "Aluminio..Al..intercambiable.cmol....kg",
+                    "Calcio..Ca..intercambiable.cmol....kg", "Magnesio..Mg..intercambiable.cmol....kg",
+                    "Potasio..K..intercambiable.cmol....kg", "Sodio..Na..intercambiable.cmol....kg",
+                    "capacidad.de.intercambio.cationico..CICE..suma.de.bases.cmol....kg",
+                    "Conductividad.el.ctrica..CE..relacion.2.5.1.0.dS.m",
+                    "Hierro..Fe..disponible.olsen.mg.kg",
+                    "Cobre..Cu..disponible.mg.kg", "Manganeso..Mn..disponible.Olsen.mg.kg",
+                    "Zinc..Zn..disponible.Olsen.mg.kg", "Boro..B..disponible.mg.kg")
+
+numeric_vars_ok_minerales = c("Fosforo..P..Bray.II.mg.kg", "Azufre..S..Fosfato.monocalcico.mg.kg",
+                              "Aluminio..Al..intercambiable.cmol....kg",
+                              "Calcio..Ca..intercambiable.cmol....kg", "Magnesio..Mg..intercambiable.cmol....kg",
+                              "Potasio..K..intercambiable.cmol....kg", "Sodio..Na..intercambiable.cmol....kg",
+                              "Hierro..Fe..disponible.olsen.mg.kg",
+                              "Cobre..Cu..disponible.mg.kg", "Manganeso..Mn..disponible.Olsen.mg.kg",
+                              "Zinc..Zn..disponible.Olsen.mg.kg", "Boro..B..disponible.mg.kg")
+
+
+
+```
+
+```{r}
+#Dataframe con los datos numéricos
+numeric_data = data[ , numeric_vars_ok_minerales]
+numeric_data_std = scale(numeric_data, center = TRUE, scale = TRUE)
+```
+
+
+
+
+# Analisis pequeño de componentes principales para los minerales
+-------------------------------------------------------------------------------------
+
+```{r}
+components = princomp(numeric_data)
+components_std = princomp(numeric_data_std)
+```
+
+```{r}
+summary(components)
+```
+
+```{r}
+summary(components_std)
+```
+
+
+
+
+# Clustering sin los outliers y con datos sin estandarizar
+-------------------------------------------------------------------------------------
+
+```{r}
+z_scores <- as.data.frame(sapply(numeric_data, function(numeric_data) (abs(numeric_data-mean(numeric_data))/sd(numeric_data))))
+```
+
+
+```{r}
+#only keep rows in dataframe with all z-scores less than absolute value of 3 
+no_outliers <- numeric_data[!rowSums(z_scores>3), ]
+dim(no_outliers)
+```
+
+```{r}
+fviz_nbclust(x = no_outliers, FUNcluster = kmeans, method = "wss", k.max = 20, 
+             nstart = 50)
+```
+
+```{r}
+set.seed(123)
+km_clusters <- kmeans(x = no_outliers, centers = 5, nstart = 50)
+
+# Las funciones del paquete factoextra emplean el nombre de las filas del
+# dataframe que contiene los datos como identificador de las observaciones.
+# Esto permite añadir labels a los gráficos.
+fviz_cluster(object = km_clusters, data = no_outliers, show.clust.cent = TRUE,
+             ellipse.type = "euclid", star.plot = TRUE, repel = TRUE, geom = "points") +
+  labs(title = "Resultados clustering K-means") +
+  theme_bw() +
+  theme(legend.position = "none")
+```
+
+```{r}
+km_clusters$centers
+km_clusters$tot.withinss
+km_clusters$betweenss
+```
+
+```{r}
+print(km_clusters$betweenss/km_clusters$totss)
+```
+
+
+
+
+# Clustering sin los outliers y con datos estandarizados
+-------------------------------------------------------------------------------------
+
+```{r}
+z_scores <- as.data.frame(sapply(numeric_data, function(numeric_data) (abs(numeric_data-mean(numeric_data))/sd(numeric_data))))
+```
+
+
+```{r}
+#only keep rows in dataframe with all z-scores less than absolute value of 3 
+no_outliers <- numeric_data_std[!rowSums(z_scores>3), ]
+dim(no_outliers)
+```
+
+```{r}
+fviz_nbclust(x = no_outliers, FUNcluster = kmeans, method = "wss", k.max = 20, 
+             nstart = 50)
+```
+
+```{r}
+set.seed(123)
+km_clusters_std <- kmeans(x = no_outliers, centers = 5, nstart = 50)
+
+# Las funciones del paquete factoextra emplean el nombre de las filas del
+# dataframe que contiene los datos como identificador de las observaciones.
+# Esto permite añadir labels a los gráficos.
+fviz_cluster(object = km_clusters_std, data = no_outliers, show.clust.cent = TRUE,
+             ellipse.type = "euclid", star.plot = TRUE, repel = TRUE, geom = "points") +
+  labs(title = "Resultados clustering K-means") +
+  theme_bw() +
+  theme(legend.position = "none")
+```
+
+```{r}
+km_clusters_std$centers
+km_clusters_std$tot.withinss
+km_clusters_std$betweenss
+```
+
+```{r}
+print(km_clusters_std$betweenss/km_clusters_std$totss)
+```
+
+
+
+
+
+
+
+
+# Analisis pequeño de componentes principales para los minerales
+-------------------------------------------------------------------------------------
+
+
+
+
+
+
